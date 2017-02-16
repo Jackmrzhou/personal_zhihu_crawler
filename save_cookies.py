@@ -11,6 +11,7 @@ headers = {
 #	'Host':'www.zhihu.com',
 #	'Referer':'https://www.zhihu.com/',
 #	'Upgrade-Insecure-Requests':'1'
+#只要模拟'User-Agent'就行了
 }
 def get_xsrf(abs_url):
 

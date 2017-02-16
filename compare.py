@@ -1,7 +1,6 @@
 import requests
 import json
 from bs4 import BeautifulSoup
-import threading
 import time
 
 def get_cookie():
@@ -30,20 +29,16 @@ def parse_html(abs_url, zhihu_html_object = None, feed_html = None):
 	else:
 		soup = BeautifulSoup(feed_html, 'lxml')
 	item_list = soup.find_all('div', attrs={'class' : 'feed-main'})
-	
-	def parse_tag(item):
+	for item in item_list:
 		'''
 			get source, title, name, summary, link
 		'''
-		try:
-			source = item.find('div', attrs = {'class' : 'feed-source'}).text
-		except:
-			source = '无来源。\n'
+		source = item.find('div', attrs = {'class' : 'feed-source'}).text
 		item_content = item.find('div', attrs = {'class' : 'feed-content'})
 		try:
 			title = item_content.h2.a.text
 		except:
-			title = '无标题.\n'
+			title = '无标题'
 
 		try:
 			name = item_content.find(
@@ -64,11 +59,8 @@ def parse_html(abs_url, zhihu_html_object = None, feed_html = None):
 		try:
 			link = item_content.find('div',attrs = {'class':'zh-summary summary clearfix'}).a.get('href') +'\n'	
 		except:
-			try:
-				link = item_content.h2.a.get('href') + '\n'
-			except:
-				link = 'no link'
-		if link[0:4] != 'http' and link != 'no link':
+			link = item_content.h2.a.get('href') + '\n'
+		if link[0:4] != 'http':
 			link = abs_url + link
 
 		with open('zhihu.txt', 'a', encoding='utf8') as fp:
@@ -79,20 +71,6 @@ def parse_html(abs_url, zhihu_html_object = None, feed_html = None):
 			fp.write(link)
 			fp.write('#' * 40)
 			fp.write('\n')
-	for item in item_list:
-		parse_tag(item)		
-
-'''
-	ts = []
-	for item in item_list:
-		t = threading.Thread(target = parse_tag(item))
-		ts.append(t)
-		t.start()
-
-	for t in ts:
-		t.join()
-'''
-	
 
 def get_AJAX_html(AJAX_url, _xsrf, cookies, offset, start):
 	headers ={
@@ -117,26 +95,26 @@ def get_AJAX_html(AJAX_url, _xsrf, cookies, offset, start):
 		print('读取失败！')
 	else:
 		feed_back = json_data['msg']
+	return feed_back
+
+def parse_feed_back(feed_back, abs_url):
 	
 	for feed_html in feed_back:
 		parse_html(feed_html = feed_html, abs_url = abs_url)
 
 '''
 class item(object):
-
 	def __init__(self, title, name, summary, link):
 		self.title = title
 		self.name = name
 		self.summary = summary
 		self.link = link
-
 	def __repr__(self):
 		return '<This is a dymanic>'
 #本来想用类，后来一想没有必要
 '''
 
 if __name__ == '__main__':
-
 	abs_url = 'https://www.zhihu.com'
 	AJAX_url = 'https://www.zhihu.com/node/TopStory2FeedList'
 	
@@ -151,26 +129,13 @@ if __name__ == '__main__':
 	after = time.time()
 	total_time += after - before
 
-	pages = int(input('Pages:'))
+#	pages = int(input('Pages:'))
+	pages = 5
 	before = time.time()
 
-	ts = []
 	for i in range(pages):
-#		feed_back = get_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1)
-#		parse_feed_back(feed_back, abs_url)
-#改前的代码
-#		t = threading.Thread(target = get_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1))
-#		t.start()
-#错误写法，参数不能这样传，否则无法实现多线程
-		t = threading.Thread(
-			target = get_AJAX_html,
-			args = [AJAX_url, _xsrf, my_cookies,10,(i+1) * 10 - 1]
-			)
-		t.start()
-		ts.append(t)
-
-	for t in ts:
-		t.join()
+		feed_back = get_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1)
+		parse_feed_back(feed_back, abs_url)
 
 	after = time.time()
 	total_time += after - before
