@@ -23,7 +23,7 @@ def get_zhihu_html_object(abs_url, cookies):
 	zhihu_html_object = requests.get(abs_url, headers = headers, cookies = cookies)
 	return zhihu_html_object
 
-def parse_html(abs_url, zhihu_html_object = None, feed_html = None):
+def parse_html(lock, abs_url, zhihu_html_object = None, feed_html = None):
 
 	if zhihu_html_object:
 		soup = BeautifulSoup(zhihu_html_object.text, 'lxml')
@@ -71,6 +71,7 @@ def parse_html(abs_url, zhihu_html_object = None, feed_html = None):
 		if link[0:4] != 'http' and link != 'no link':
 			link = abs_url + link
 
+		'''		
 		with open('zhihu.txt', 'a', encoding='utf8') as fp:
 			fp.write(source)
 			fp.write('标题：  ' + title)
@@ -79,6 +80,18 @@ def parse_html(abs_url, zhihu_html_object = None, feed_html = None):
 			fp.write(link)
 			fp.write('#' * 40)
 			fp.write('\n')
+		#这样写频繁重新open会浪费性能
+		'''
+		global fp
+		lock.acquire()
+		fp.write(source)
+		fp.write('标题：  ' + title)
+		fp.write('姓名：  ' + name)
+		fp.write('概述：  ' + summary)
+		fp.write(link)
+		fp.write('#' * 40 +'\n')
+		lock.release()
+
 	for item in item_list:
 		parse_tag(item)		
 
@@ -94,7 +107,7 @@ def parse_html(abs_url, zhihu_html_object = None, feed_html = None):
 '''
 	
 
-def get_AJAX_html(AJAX_url, _xsrf, cookies, offset, start):
+def get_parse_AJAX_html(lock, AJAX_url, _xsrf, cookies, offset, start):
 	headers ={
 		'Accept':'*/*',
 		'Accept-Encoding':'gzip, deflate, br',
@@ -119,7 +132,7 @@ def get_AJAX_html(AJAX_url, _xsrf, cookies, offset, start):
 		feed_back = json_data['msg']
 	
 	for feed_html in feed_back:
-		parse_html(feed_html = feed_html, abs_url = abs_url)
+		parse_html(lock = lock, feed_html = feed_html, abs_url = abs_url)
 
 '''
 class item(object):
@@ -139,32 +152,35 @@ if __name__ == '__main__':
 
 	abs_url = 'https://www.zhihu.com'
 	AJAX_url = 'https://www.zhihu.com/node/TopStory2FeedList'
+	fp = open('zhihu.txt', 'a', encoding='utf8')
+	lock = threading.Lock()
+	pages = int(input('Pages:'))
 	
 	total_time = 0
 	before = time.time()
-
+	
 	my_cookies = get_cookie()
 	_xsrf = get_xsrf_from_cookies(my_cookies)
-	zhihu_html_object = get_zhihu_html_object(abs_url, my_cookies)
-	parse_html(abs_url, zhihu_html_object = zhihu_html_object)
-
-	after = time.time()
-	total_time += after - before
-
-	pages = int(input('Pages:'))
-	before = time.time()
-
 	ts = []
+	
+	def previous():
+		
+		zhihu_html_object = get_zhihu_html_object(abs_url, my_cookies)
+		parse_html(lock, abs_url, zhihu_html_object = zhihu_html_object)
+
+	t = threading.Thread(target = previous)
+	t.start()
+	ts.append(t)
+	
 	for i in range(pages):
-#		feed_back = get_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1)
-#		parse_feed_back(feed_back, abs_url)
+#		get_parse_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1)
 #改前的代码
-#		t = threading.Thread(target = get_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1))
+#		t = threading.Thread(target = get_parse_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1))
 #		t.start()
 #错误写法，参数不能这样传，否则无法实现多线程
 		t = threading.Thread(
-			target = get_AJAX_html,
-			args = [AJAX_url, _xsrf, my_cookies,10,(i+1) * 10 - 1]
+			target = get_parse_AJAX_html,
+			args = [lock, AJAX_url, _xsrf, my_cookies,10,(i+1) * 10 - 1]
 			)
 		t.start()
 		ts.append(t)
@@ -172,6 +188,7 @@ if __name__ == '__main__':
 	for t in ts:
 		t.join()
 
+	fp.close()
 	after = time.time()
 	total_time += after - before
 
