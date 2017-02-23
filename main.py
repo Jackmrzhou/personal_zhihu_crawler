@@ -154,8 +154,6 @@ if __name__ == '__main__':
 	AJAX_url = 'https://www.zhihu.com/node/TopStory2FeedList'
 	fp = open('zhihu.txt', 'a', encoding='utf8')
 	lock = threading.Lock()
-	pages = int(input('Pages:'))
-	
 	total_time = 0
 	before = time.time()
 	
@@ -171,6 +169,8 @@ if __name__ == '__main__':
 	t = threading.Thread(target = previous)
 	t.start()
 	ts.append(t)
+	
+	pages = int(input('Pages:'))
 	
 	for i in range(pages):
 #		get_parse_AJAX_html(AJAX_url, _xsrf, my_cookies, 10, (i+1) * 10 - 1)
